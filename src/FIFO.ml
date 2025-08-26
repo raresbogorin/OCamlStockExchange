@@ -29,4 +29,19 @@ module FIFO = struct
 					(peek {head = []; tail = List.rev q.head})
 		| x :: xs -> 
 			(Some x, q)
+
+	let compareFirst (a : 'a) (q : 'a t) (f : 'a -> 'a -> int) = 
+		match (peek q) with
+		| None, _ -> failwith "empty queue; cannot compare"
+		| Some x, _ -> f a x
+
+	let compareQueues (a : 'a t) (b : 'a t) (f : 'a -> 'a -> int) =
+		match (peek a) , (peek b) with
+		| (Some x , _) , (Some y, _) -> f x y
+		| _ , _ -> failwith "cannot compare; queues might be empty"
+
+	let isEmpty q =
+		match q.head, q.tail with
+		| [], [] -> true
+		| _, _ -> false
 end
