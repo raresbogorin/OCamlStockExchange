@@ -1,0 +1,10 @@
+### Exchange structure
+
+Trade
+
+
+
+Stock
+
+
+
