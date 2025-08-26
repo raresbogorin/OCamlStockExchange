@@ -6,7 +6,10 @@ type stock = (float * ticker)
 
 type order = Buy of (stock) | Sell of (stock)
 
-type orderBook = (stock list * stock list)
+type orderBook = {
+	buys : stock FIFO.t list;
+	sells : stock FIFO.t list;
+}
 
 
 let rec insertIntoBookBuys ((p, t) : stock) orderBook result = 
@@ -31,24 +34,24 @@ let rec insertIntoBookSells ((p, t) : stock) (orderBook : stock list) (result : 
 			else 
 				List.append (List.rev ((p, t) :: (price, name) :: result)) xs
 
-let addOrder order ((buys, sells) : orderBook) = 
+let addOrder order ((orderBook) : orderBook) = 
 	match order with
 	| Buy (stock) -> 
-		insertIntoBookBuys stock buys []
+		insertIntoBookBuys stock orderBook.buys []
 	| Sell (stock) -> 
-		insertIntoBookSells stock sells []
+		insertIntoBookSells stock orderBook.sells []
 
 
 
-let rec executeOrders ((buys, sells) : orderBook) = 
-	match buys, sells with
+let rec executeOrders (orderBook : orderBook) = 
+	match orderBook.buys, orderBook.sells with
 	| [], [] -> 
 		(buys, sells)
-	| (p, n) :: xs, [] -> 
+	| o :: xs, [] -> 
 		(buys, sells)
-	| [], (p, n) :: xs -> 
+	| [], o :: xs -> 
 		(buys, sells)
-	| (buyPrice, _) :: restBuys, (sellPrice, _) :: restSells -> 
+	| buySide :: restBuys, sellSide :: restSells -> 
 		if buyPrice = sellPrice 
 			then 
 				(print_endline ("Executed order @ " ^ string_of_float buyPrice);
