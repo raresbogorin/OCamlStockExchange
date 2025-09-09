@@ -1,18 +1,5 @@
 open FIFO
-
-type ticker = string
-
-type stock = {
-	price : float;
-	ticker : ticker;
-}
-
-type order = Buy of (stock) | Sell of (stock)
-
-type orderBook = {
-	buys : stock FIFO.t list;
-	sells : stock FIFO.t list;
-}
+open ThreadSafeQueue
 
 
 let stockComparator a b = 
@@ -98,20 +85,20 @@ let rec insertAll orders (orderBook : orderBook) =
 	| [] -> orderBook
 	| x :: xs -> insertAll xs (addOrder x orderBook)
 
-let toStock ticker price =
+let toStock (ticker : string) (price : string) =
 	try
 		let p = Float.of_string price in
 		{price = p ; ticker = ticker}	
 	with
 	| _ -> failwith "error at toStock"
 
-let toOrder t stock =
+let toOrder (t : string) (stock : stock) =
 	match t with
 	| "buy" -> Buy (stock)
 	| "sell" -> Sell (stock)
 	| _ -> failwith "error at toOrder"
 
-let check line =
+let check (line : string) =
 	let tokenized = String.split_on_char ';' line in
 	match tokenized with
 	| t :: ticker :: price :: _ :: [] ->
@@ -132,8 +119,41 @@ let rec parseBook stream result =
 let readBook path =
 	let stream = open_in path in
 	let orders = parseBook stream [] in
-	insertAll orders {buys = [] ; sells = [] } 	
-
-let main = 
+	insertAll orders {buys = [] ; sells = [] }
+(* 
+let main () = 
 	let book = readBook "../orders.txt"  in
-	executeOrders book
+	executeOrders book *)
+
+let main2 =
+	let orderQueue = ThreadSafeQueue.create () in 
+	let engine_loop () = 
+		let book = readBook "../orders.txt" in
+		let rec main_loop orderBook = 
+			let newBook = executeOrders orderBook in
+			let order = ThreadSafeQueue.pop orderQueue in
+			main_loop (addOrder order newBook)
+		in main_loop book
+	in
+	let buy = Buy ({price = 20. ; ticker = "AMD" }) in
+	let sell = Sell ({price = 21. ; ticker = "AMD" }) in
+	let buy_loop () =
+		let rec main_loop order = 
+			ThreadSafeQueue.push order orderQueue;
+			main_loop order
+		in main_loop buy
+	in
+	let sell_loop () =
+		let rec main_loop order = 
+			ThreadSafeQueue.push order orderQueue;
+			main_loop order 
+		in main_loop sell
+	in
+	print_endline "Starting engine...";
+	let exchange = Domain.spawn engine_loop in
+	let trader1 = Domain.spawn buy_loop in
+	let trader2 = Domain.spawn sell_loop in
+	Domain.join exchange;
+	Domain.join trader1;
+	Domain.join trader2;
+	print_endline "Exchange closed"
